@@ -4,8 +4,33 @@
 
   vars:
     mariadb_root_password: "BigSecret2017!"
+    php_packages: [
+      "php",
+      "php-gd",
+      "php-intl",
+      "php-ldap",
+      "php-ZendFramework",
+      "php-ZendFramework-Db-Adapter-Pdo-Mysql"
+    ]
 
   tasks:
+
+  - name: Install Apache
+    yum:
+      name: httpd
+      state: present
+
+  - name: Disable the pre-set Apache welcome page
+    shell: sed -i 's/^/#&/g' /etc/httpd/conf.d/welcome.conf
+
+  - name: Forbid Apache from exposing files and directories within the web root directory
+    shell: sed -i "s/Options Indexes FollowSymLinks/Options FollowSymLinks/" /etc/httpd/conf/httpd.conf
+
+  - name: Start & Enable Apache
+    service:
+      name: httpd
+      state: started
+      enabled: yes
 
   - name: Create Icgina gpg file
     copy:
@@ -60,7 +85,7 @@
     with_items:
       - 127.0.0.1
       - ::1
-      - icinga
+      #- icinga FAILS TO CREATE???
       - localhost
 
   - name: Add .my.cnf
@@ -105,3 +130,69 @@
     yum:
       name: "nagios-plugins-all"
       state: "present"
+
+  - name: Install php packages for icinga Web
+    yum:
+      name: "{{ item }}"
+    with_items: "{{ php_packages }}"
+
+  - name: Set php timezone
+    lineinfile:
+      path: /etc/php.ini
+      regexp: '^;date[.]timezone =*'
+      line: 'date.timezone = Europe/Zurich'
+      state: present
+
+  - name: Ensure Icinga database exists
+    mysql_db:
+      name: icinga
+      state: present
+
+  - name: Ensure MariaDB user for Icinga exists
+    mysql_user:
+      name: icinga
+      password: icinga # Variablise later
+      priv: "icinga.*:SELECT,INSERT,UPDATE,DELETE,DROP,CREATE VIEW,INDEX,EXECUTE"
+      state: present
+
+  - name: Restore icinga dump
+    shell: mysql icinga < /usr/share/icinga2-ido-mysql/schema/mysql.sql
+    args:
+      creates: /var/lib/mysql/icinga/icinga_endpointstatus.frm # Change to shell to use this
+
+  - name: Enable the IDO MySQL module
+    lineinfile:
+      path: /etc/icinga2/features-available/ido-mysql.conf
+      line: "{{ item }}"
+      state: present
+    with_items:
+      - 'user = "icinga"'
+      - 'password = "icinga"'
+      - 'host = "localhost"'
+      - 'database = "icinga"'
+
+  - name: Enable the ido-mysql feature
+    command: icinga2 feature enable ido-mysql
+
+  #- name: Ensure Icinga packages present
+  #  yum:
+  #    name: "{{ item }}"
+  #    state: present
+  #  with_items:
+  #    - icingaweb2
+  #    - icingacli
+
+#  - name: Ensure Apache web root directory is the location of Icinga Web 2
+#    command: icingacli setup config webserver apache --document-root /usr/share/icingaweb2/public
+
+  # Change to handler?
+  - name: Restart services
+    service:
+      name: "{{ item }}"
+      state: restarted
+    with_items:
+      - httpd
+      - icinga2
+
+#  - debug:
+#    msg: "You should be able to access Icinga setup at http://<your-server-ip>/icingaweb2/setup"
