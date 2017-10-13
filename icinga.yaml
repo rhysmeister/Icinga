@@ -195,3 +195,14 @@
     with_items:
       - httpd
       - icinga2
+
+  - name: Ensure icingaweb2 group exists
+    group:
+      name: icingaweb2
+      state: present
+
+  - name: Ensure apache user is memeber of appropriate group
+    user:
+      name: apache
+      groups: icingaweb2
+      append: yes
