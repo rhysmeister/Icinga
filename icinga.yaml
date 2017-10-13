@@ -174,16 +174,18 @@
   - name: Enable the ido-mysql feature
     command: icinga2 feature enable ido-mysql
 
-  #- name: Ensure Icinga packages present
-  #  yum:
-  #    name: "{{ item }}"
-  #    state: present
-  #  with_items:
-  #    - icingaweb2
-  #    - icingacli
+  - name: Ensure Icinga packages present
+    yum:
+      name: "{{ item }}"
+      state: present
+    with_items:
+      - icingaweb2
+      - icingacli
 
-#  - name: Ensure Apache web root directory is the location of Icinga Web 2
-#    command: icingacli setup config webserver apache --document-root /usr/share/icingaweb2/public
+  - name: Ensure Apache web root directory is the location of Icinga Web 2
+    shell: icingacli setup config webserver apache --document-root /usr/share/icingaweb2/public && touch done.true
+    args:
+      creates: done.true
 
   # Change to handler?
   - name: Restart services
@@ -193,6 +195,3 @@
     with_items:
       - httpd
       - icinga2
-
-#  - debug:
-#    msg: "You should be able to access Icinga setup at http://<your-server-ip>/icingaweb2/setup"
