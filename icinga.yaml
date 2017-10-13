@@ -206,3 +206,20 @@
       name: apache
       groups: icingaweb2
       append: yes
+
+  - name: Ensure Icinga config has been initiated
+    shell: icingacli setup config directory --group icingaweb2 && touch icinga.config.init
+    args:
+      creates: icinga.config.init
+
+  - name: Ensure Icinga setup token has been created
+    shell: icingacli setup token create > icingacli.setup
+    args:
+      creates: icingacli.setup
+
+  - command: cat icingacli.setup
+    register: icingacli
+
+  - name: Output incingacli setup token
+    debug:
+      var: icingacli.stdout
